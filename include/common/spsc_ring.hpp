@@ -15,16 +15,16 @@ template <typename T, size_t N> class SpscRing {
                 "T must be nothrow constructible");
 
 #if defined(__cpp_lib_hardware_interference_size)
-  static constexpr size_t cachelineSize =
+  static constexpr size_t CACHELINE_SIZE =
       std::hardware_destructive_interference_size;
 #else
-  static constexpr size_t cachelineSize = 64;
+  static constexpr size_t CACHELINE_SIZE = 64;
 #endif
 
-  static constexpr size_t storageAlign = std::max(alignof(T), cachelineSize);
-  static constexpr size_t capacity = N;
-  static constexpr size_t mask = N - 1;
-  static constexpr size_t stride = sizeof(T);
+  static constexpr size_t STORAGE_ALIGN = std::max(alignof(T), CACHELINE_SIZE);
+  static constexpr size_t CAPACITY = N;
+  static constexpr size_t MASK = N - 1;
+  static constexpr size_t STRIDE = sizeof(T);
 
 public:
   explicit SpscRing() : head(0), tail(0) {}
@@ -39,27 +39,27 @@ public:
   }
 
   size_t size() const {
-    const size_t head = this->head.load(std::memory_order_relaxed);
-    const size_t tail = this->tail.load(std::memory_order_relaxed);
+    const size_t head_val = head.load(std::memory_order_relaxed);
+    const size_t tail_val = tail.load(std::memory_order_relaxed);
 
-    return tail - head;
+    return tail_val - head_val;
   }
 
   bool empty() const {
-    const size_t head = this->head.load(std::memory_order_relaxed);
-    const size_t tail = this->tail.load(std::memory_order_relaxed);
+    const size_t head_val = head.load(std::memory_order_relaxed);
+    const size_t tail_val = tail.load(std::memory_order_relaxed);
 
-    return head == tail;
+    return head_val == tail_val;
   }
 
   bool full() const {
-    const size_t head = this->head.load(std::memory_order_relaxed);
-    const size_t tail = this->tail.load(std::memory_order_relaxed);
+    const size_t head_val = head.load(std::memory_order_relaxed);
+    const size_t tail_val = tail.load(std::memory_order_relaxed);
 
-    return (tail - head) == capacity;
+    return (tail_val - head_val) == CAPACITY;
   }
 
-  static inline constexpr size_t get_capacity() { return capacity; }
+  static inline constexpr size_t get_capacity() { return CAPACITY; }
 
   template <typename... Args> bool try_emplace(Args &&...args) {
     return this->emplace_impl(std::forward<Args>(args)...);
@@ -70,15 +70,13 @@ public:
   bool try_push(T &&value) { return this->try_emplace(std::move(value)); }
 
   bool try_pop(T &out) {
-    const size_t head = this->head.load(std::memory_order_relaxed);
-    const size_t tail = this->tail.load(std::memory_order_acquire);
-    if (head == tail) {
-      return false; // empty
+    const size_t head_val = head.load(std::memory_order_relaxed);
+    const size_t tail_val = tail.load(std::memory_order_acquire);
+    if (head_val == tail_val) {
+      return false;
     }
 
-    void *data_at = static_cast<void *>(this->buffer_at(head & mask));
-
-    // Pointer to the live T in the slot
+    void *data_at = static_cast<void *>(buffer_at(head_val & MASK));
     T *elem = std::launder(reinterpret_cast<T *>(data_at));
 
     if constexpr (std::is_move_assignable_v<T>) {
@@ -90,31 +88,28 @@ public:
       std::construct_at(std::addressof(out), std::move(*elem));
     }
 
-    // Destroy the object that lived in the slot
     elem->~T();
-
-    // Publish the freed slot so producer can reuse it
-    this->head.store(head + 1, std::memory_order_release);
+    head.store(head_val + 1, std::memory_order_release);
     return true;
   }
 
 private:
-  alignas(cachelineSize) std::atomic<size_t> head;
-  alignas(cachelineSize) std::atomic<size_t> tail;
-  alignas(storageAlign) std::byte buffer[capacity * stride];
+  alignas(CACHELINE_SIZE) std::atomic<size_t> head;
+  alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
+  alignas(STORAGE_ALIGN) std::byte buffer[CAPACITY * STRIDE];
 
   template <typename... Args> bool emplace_impl(Args &&...args) {
-    const size_t head = this->head.load(std::memory_order_relaxed);
-    const size_t tail = this->tail.load(std::memory_order_relaxed);
+    const size_t head_val = head.load(std::memory_order_relaxed);
+    const size_t tail_val = tail.load(std::memory_order_relaxed);
 
-    if ((tail - head) == capacity) {
+    if ((tail_val - head_val) == CAPACITY) {
       return false;
     }
 
-    void *data_at = static_cast<void *>(this->buffer_at(tail & mask));
+    void *data_at = static_cast<void *>(buffer_at(tail_val & MASK));
     ::new (data_at) T(std::forward<Args>(args)...);
 
-    this->tail.store(tail + 1, std::memory_order_release);
+    tail.store(tail_val + 1, std::memory_order_release);
     return true;
   }
 
@@ -124,7 +119,7 @@ private:
   }
 
   std::byte *buffer_at(size_t index) noexcept {
-    return &buffer[index * stride];
+    return &buffer[index * STRIDE];
   }
 };
 } // namespace mini_mart::common
