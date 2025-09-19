@@ -1,0 +1,7 @@
+{
+    "clangd.fallbackFlags": [
+        "-I${workspaceFolder}/include",
+        "-Iusr/src/gtest/Iinclude",
+        "-std=c++20"
+    ]
+}
