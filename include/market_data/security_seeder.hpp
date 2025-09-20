@@ -159,7 +159,7 @@ public:
     // Return first 10 equities for testing
     std::vector<SecurityId> result;
     size_t count = std::min(10ul, equities.size());
-    result.insert(result.end(), equities.begin(), equities.begin() + count);
+    result.insert(result.end(), equities.begin(), equities.begin() + static_cast<std::ptrdiff_t>(count));
 
     return result;
   }

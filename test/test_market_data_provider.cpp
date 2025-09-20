@@ -66,14 +66,14 @@ TEST_F(MarketDataProviderTest, SubscribeUnsubscribe) {
 
   // Check subscribed securities
   auto securities = provider_->get_subscribed_securities();
-  EXPECT_EQ(securities.size(), 2);
+  EXPECT_EQ(securities.size(), 2u);
 
   // Unsubscribe
   EXPECT_TRUE(provider_->unsubscribe(aapl));
   EXPECT_FALSE(provider_->unsubscribe(aapl)); // Already unsubscribed
 
   securities = provider_->get_subscribed_securities();
-  EXPECT_EQ(securities.size(), 1);
+  EXPECT_EQ(securities.size(), 1u);
 }
 
 TEST_F(MarketDataProviderTest, MarketDataGeneration) {
@@ -107,19 +107,19 @@ TEST_F(MarketDataProviderTest, MarketDataGeneration) {
             static_cast<uint16_t>(MessageType::MARKET_DATA_L2));
   EXPECT_EQ(last_message.header.length, sizeof(MarketDataL2Message));
   EXPECT_EQ(last_message.security_id, aapl);
-  EXPECT_GT(last_message.timestamp_ns, 0);
+  EXPECT_GT(last_message.timestamp_ns, 0u);
 
   // Validate L2 data
   EXPECT_EQ(last_message.num_bid_levels, 5);
   EXPECT_EQ(last_message.num_ask_levels, 5);
 
   // Check bid levels are in descending order
-  for (int i = 0; i < 4; ++i) {
+  for (size_t i = 0; i < 4; ++i) {
     EXPECT_GE(last_message.bids[i].price, last_message.bids[i + 1].price);
   }
 
   // Check ask levels are in ascending order
-  for (int i = 0; i < 4; ++i) {
+  for (size_t i = 0; i < 4; ++i) {
     EXPECT_LE(last_message.asks[i].price, last_message.asks[i + 1].price);
   }
 
@@ -127,7 +127,7 @@ TEST_F(MarketDataProviderTest, MarketDataGeneration) {
   EXPECT_GT(last_message.asks[0].price, last_message.bids[0].price);
 
   // Check quantities are within range
-  for (int i = 0; i < 5; ++i) {
+  for (size_t i = 0; i < 5; ++i) {
     EXPECT_GE(last_message.bids[i].quantity, config_.min_quantity);
     EXPECT_LE(last_message.bids[i].quantity, config_.max_quantity);
     EXPECT_GE(last_message.asks[i].quantity, config_.min_quantity);
@@ -177,8 +177,8 @@ TEST_F(MarketDataProviderTest, EquityPriceRanges) {
   ASSERT_NE(googl_msg, nullptr);
 
   // AAPL should be around $175, GOOGL around $2800
-  double aapl_price = static_cast<double>(aapl_msg->bids[0].price) / 10000.0;
-  double googl_price = static_cast<double>(googl_msg->bids[0].price) / 10000.0;
+  double aapl_price = aapl_msg->bids[0].price.dollars();
+  double googl_price = googl_msg->bids[0].price.dollars();
 
   // Prices should be in reasonable ranges (allowing for volatility)
   EXPECT_GT(aapl_price, 100.0);
@@ -211,8 +211,8 @@ TEST_F(MarketDataProviderTest, SpreadCalculation) {
   EXPECT_GT(message_count.load(), 0);
 
   // Calculate spread
-  double best_bid = static_cast<double>(last_message.bids[0].price) / 10000.0;
-  double best_ask = static_cast<double>(last_message.asks[0].price) / 10000.0;
+  double best_bid = last_message.bids[0].price.dollars();
+  double best_ask = last_message.asks[0].price.dollars();
   double spread = best_ask - best_bid;
   double mid_price = (best_bid + best_ask) / 2.0;
   double spread_bps = (spread / mid_price) * 10000.0;
@@ -247,7 +247,7 @@ TEST_F(MarketDataProviderTest, MultipleSecurities) {
 
   // Should have received messages from all securities
   EXPECT_EQ(seen_securities.size(), securities.size());
-  EXPECT_GT(message_count.load(), securities.size());
+  EXPECT_GT(message_count.load(), static_cast<int>(securities.size()));
 }
 
 TEST_F(MarketDataProviderTest, ThreadSafety) {
@@ -302,10 +302,10 @@ TEST(SecuritySeederTest, CreateSecurityId) {
 
 TEST(SecuritySeederTest, EquityLists) {
   auto equities = SecuritySeeder::get_major_us_equities();
-  EXPECT_GT(equities.size(), 10);
+  EXPECT_GT(equities.size(), 10u);
 
   auto test_securities = SecuritySeeder::get_test_securities();
-  EXPECT_EQ(test_securities.size(), 10); // Should return exactly 10 for testing
+  EXPECT_EQ(test_securities.size(), 10u); // Should return exactly 10 for testing
 
   // All test securities should be from equities list
   for (const auto &test_sec : test_securities) {

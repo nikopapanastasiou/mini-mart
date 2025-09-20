@@ -1,8 +1,11 @@
 #include "market_data/market_data_feed.hpp"
 #include "market_data/random_market_data_provider.hpp"
+#include "market_data/security_seeder.hpp"
+#include "common/time_utils.hpp"
 #include <chrono>
 #include <csignal>
 #include <iostream>
+#include <memory>
 #include <thread>
 
 // Global pointer for signal handler access
@@ -49,14 +52,14 @@ int main() {
     return 1;
   }
 
-  g_feed->subscribe(mini_mart::types::SecurityId("AAPL"));
-  g_feed->subscribe(mini_mart::types::SecurityId("MSFT"));
-  g_feed->subscribe(mini_mart::types::SecurityId("GOOGL"));
-  g_feed->subscribe(mini_mart::types::SecurityId("TSLA"));
-  g_feed->subscribe(mini_mart::types::SecurityId("META"));
-  g_feed->subscribe(mini_mart::types::SecurityId("AMZN"));
-  g_feed->subscribe(mini_mart::types::SecurityId("NVDA"));
-  g_feed->subscribe(mini_mart::types::SecurityId("NFLX"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("AAPL"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("MSFT"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("GOOGL"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("TSLA"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("META"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("AMZN"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("NVDA"));
+  g_feed->subscribe(mini_mart::market_data::SecuritySeeder::create_security_id("NFLX"));
 
   while (g_feed->is_running()) {
     std::this_thread::sleep_for(std::chrono::seconds(1));

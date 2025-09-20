@@ -14,13 +14,7 @@ template <typename T, size_t N> class SpscRing {
   static_assert(std::is_nothrow_constructible_v<T>,
                 "T must be nothrow constructible");
 
-#if defined(__cpp_lib_hardware_interference_size)
-  static constexpr size_t CACHELINE_SIZE =
-      std::hardware_destructive_interference_size;
-#else
   static constexpr size_t CACHELINE_SIZE = 64;
-#endif
-
   static constexpr size_t STORAGE_ALIGN = std::max(alignof(T), CACHELINE_SIZE);
   static constexpr size_t CAPACITY = N;
   static constexpr size_t MASK = N - 1;
@@ -84,8 +78,8 @@ public:
     } else {
       static_assert(std::is_move_constructible_v<T>,
                     "T must be move-constructible");
-      std::destroy_at(std::addressof(out));
-      std::construct_at(std::addressof(out), std::move(*elem));
+      out.~T();
+      new (std::addressof(out)) T(std::move(*elem));
     }
 
     elem->~T();

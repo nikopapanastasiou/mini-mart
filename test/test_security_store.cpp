@@ -1,13 +1,11 @@
 #include "market_data/security_seeder.hpp"
 #include "market_data/security_store.hpp"
-#include <atomic>
-#include <chrono>
 #include <gtest/gtest.h>
 #include <thread>
-#include <vector>
 
 using namespace mini_mart::market_data;
 using namespace mini_mart::types;
+using mini_mart::types::price_from_raw;
 
 class SecurityStoreTest : public ::testing::Test {
 protected:
@@ -23,8 +21,8 @@ protected:
   void TearDown() override { store_.reset(); }
 
   MarketDataL2Message create_test_message(const SecurityId &security_id,
-                                          Price best_bid = 1000000,   // $100.00
-                                          Price best_ask = 1000500) { // $100.05
+                                          Price best_bid = mini_mart::types::price_from_raw(1000000),   // $100.00
+                                          Price best_ask = mini_mart::types::price_from_raw(1000500)) { // $100.05
     MarketDataL2Message message{};
 
     message.header.type = static_cast<uint16_t>(MessageType::MARKET_DATA_L2);
@@ -52,8 +50,8 @@ protected:
   uint64_t get_current_time_ns() const {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
-        .count();
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
+        .count());
   }
 
   std::unique_ptr<SecurityStore> store_;
@@ -63,7 +61,7 @@ protected:
 };
 
 TEST_F(SecurityStoreTest, InitialState) {
-  EXPECT_EQ(store_->size(), 0);
+  EXPECT_EQ(store_->size(), 0u);
   EXPECT_FALSE(store_->contains(aapl_id_));
 
   SecurityStore::SecuritySnapshot snapshot;
@@ -73,16 +71,16 @@ TEST_F(SecurityStoreTest, InitialState) {
 TEST_F(SecurityStoreTest, AddRemoveSecurity) {
   // Add security
   EXPECT_TRUE(store_->add_security(aapl_id_));
-  EXPECT_EQ(store_->size(), 1);
+  EXPECT_EQ(store_->size(), 1u);
   EXPECT_TRUE(store_->contains(aapl_id_));
 
   // Cannot add duplicate
   EXPECT_FALSE(store_->add_security(aapl_id_));
-  EXPECT_EQ(store_->size(), 1);
+  EXPECT_EQ(store_->size(), 1u);
 
   // Remove security
   EXPECT_TRUE(store_->remove_security(aapl_id_));
-  EXPECT_EQ(store_->size(), 0);
+  EXPECT_EQ(store_->size(), 0u);
   EXPECT_FALSE(store_->contains(aapl_id_));
 
   // Cannot remove non-existent
@@ -95,7 +93,7 @@ TEST_F(SecurityStoreTest, UpdateFromL2Message) {
 
   // Create and apply L2 update
   auto message =
-      create_test_message(aapl_id_, 1750000, 1750500); // $175.00/$175.05
+      create_test_message(aapl_id_, price_from_raw(1750000), price_from_raw(1750500)); // $175.00/$175.05
   EXPECT_TRUE(store_->update_from_l2(message));
 
   // Verify update
@@ -103,17 +101,17 @@ TEST_F(SecurityStoreTest, UpdateFromL2Message) {
   EXPECT_TRUE(store_->get_security_snapshot(aapl_id_, snapshot));
 
   EXPECT_EQ(snapshot.security_id, aapl_id_);
-  EXPECT_EQ(snapshot.best_bid, 1750000);
-  EXPECT_EQ(snapshot.best_ask, 1750500);
-  EXPECT_EQ(snapshot.num_bid_levels, 3);
-  EXPECT_EQ(snapshot.num_ask_levels, 3);
-  EXPECT_EQ(snapshot.update_count, 1);
+  EXPECT_EQ(snapshot.best_bid, price_from_raw(1750000));
+  EXPECT_EQ(snapshot.best_ask, price_from_raw(1750500));
+  EXPECT_EQ(snapshot.num_bid_levels, 3u);
+  EXPECT_EQ(snapshot.num_ask_levels, 3u);
+  EXPECT_EQ(snapshot.update_count, 1u);
 
   // Verify order book levels
-  EXPECT_EQ(snapshot.bids[0].price, 1750000);
-  EXPECT_EQ(snapshot.bids[0].quantity, 1000);
-  EXPECT_EQ(snapshot.asks[0].price, 1750500);
-  EXPECT_EQ(snapshot.asks[0].quantity, 800);
+  EXPECT_EQ(snapshot.bids[0].price, price_from_raw(1750000));
+  EXPECT_EQ(snapshot.bids[0].quantity, 1000u);
+  EXPECT_EQ(snapshot.asks[0].price, price_from_raw(1750500));
+  EXPECT_EQ(snapshot.asks[0].quantity, 800u);
 }
 
 TEST_F(SecurityStoreTest, UpdateNonExistentSecurity) {
@@ -125,14 +123,14 @@ TEST_F(SecurityStoreTest, SnapshotCalculations) {
   store_->add_security(aapl_id_);
 
   auto message =
-      create_test_message(aapl_id_, 1000000, 1001000); // $100.00/$100.10
+      create_test_message(aapl_id_, price_from_raw(1000000), price_from_raw(1001000)); // $100.00/$100.10
   store_->update_from_l2(message);
 
   SecurityStore::SecuritySnapshot snapshot;
   EXPECT_TRUE(store_->get_security_snapshot(aapl_id_, snapshot));
 
   // Test mid price calculation
-  Price expected_mid = (1000000 + 1001000) / 2; // $100.05
+  Price expected_mid = (price_from_raw(1000000) + price_from_raw(1001000)) / 2; // $100.05
   EXPECT_EQ(snapshot.get_mid_price(), expected_mid);
 
   // Test spread calculation (should be ~10 basis points)
@@ -153,9 +151,9 @@ TEST_F(SecurityStoreTest, MultipleSecurities) {
   EXPECT_EQ(store_->size(), 3);
 
   // Update each with different prices
-  auto aapl_msg = create_test_message(aapl_id_, 1750000, 1750500);
-  auto msft_msg = create_test_message(msft_id_, 3500000, 3500500);
-  auto googl_msg = create_test_message(googl_id_, 28000000, 28005000);
+  auto aapl_msg = create_test_message(aapl_id_, price_from_raw(1750000), price_from_raw(1750500));
+  auto msft_msg = create_test_message(msft_id_, price_from_raw(3500000), price_from_raw(3500500));
+  auto googl_msg = create_test_message(googl_id_, price_from_raw(28000000), price_from_raw(28005000));
 
   EXPECT_TRUE(store_->update_from_l2(aapl_msg));
   EXPECT_TRUE(store_->update_from_l2(msft_msg));
@@ -165,13 +163,13 @@ TEST_F(SecurityStoreTest, MultipleSecurities) {
   SecurityStore::SecuritySnapshot snapshot;
 
   EXPECT_TRUE(store_->get_security_snapshot(aapl_id_, snapshot));
-  EXPECT_EQ(snapshot.best_bid, 1750000);
+  EXPECT_EQ(snapshot.best_bid, price_from_raw(1750000));
 
   EXPECT_TRUE(store_->get_security_snapshot(msft_id_, snapshot));
-  EXPECT_EQ(snapshot.best_bid, 3500000);
+  EXPECT_EQ(snapshot.best_bid, price_from_raw(3500000));
 
   EXPECT_TRUE(store_->get_security_snapshot(googl_id_, snapshot));
-  EXPECT_EQ(snapshot.best_bid, 28000000);
+  EXPECT_EQ(snapshot.best_bid, price_from_raw(28000000));
 
   // Test get_all_securities
   auto all_securities = store_->get_all_securities();
@@ -184,7 +182,7 @@ TEST_F(SecurityStoreTest, ClearStore) {
   EXPECT_EQ(store_->size(), 2);
 
   store_->clear();
-  EXPECT_EQ(store_->size(), 0);
+  EXPECT_EQ(store_->size(), 0u);
   EXPECT_FALSE(store_->contains(aapl_id_));
   EXPECT_FALSE(store_->contains(msft_id_));
 }
@@ -193,11 +191,11 @@ TEST_F(SecurityStoreTest, HighFrequencyUpdates) {
   store_->add_security(aapl_id_);
 
   const int num_updates = 10000;
-  Price base_price = 1750000; // $175.00
+  Price base_price = 1750000_cents; // $175.00
 
   // Apply many rapid updates
   for (int i = 0; i < num_updates; ++i) {
-    Price bid = base_price + (i % 100) - 50; // Small price variations
+    Price bid = base_price + Price{static_cast<uint64_t>(i % 100)} - 50; // Small price variations
     Price ask = bid + 500;                   // 5 cent spread
 
     auto message = create_test_message(aapl_id_, bid, ask);
@@ -218,7 +216,7 @@ TEST_F(SecurityStoreTest, ConcurrentReads) {
   store_->add_security(aapl_id_);
 
   // Start with initial data
-  auto message = create_test_message(aapl_id_, 1750000, 1750500);
+  auto message = create_test_message(aapl_id_, price_from_raw(1750000), price_from_raw(1750500));
   store_->update_from_l2(message);
 
   std::atomic<bool> stop_flag{false};
@@ -252,7 +250,7 @@ TEST_F(SecurityStoreTest, ConcurrentReads) {
 
   // Apply updates while readers are running
   for (int i = 0; i < 1000; ++i) {
-    Price bid = 1750000 + (i % 50);
+    Price bid = 1750000_cents + Price{static_cast<uint64_t>(i % 50)};
     Price ask = bid + 500;
     auto update_msg = create_test_message(aapl_id_, bid, ask);
     store_->update_from_l2(update_msg);
@@ -279,16 +277,16 @@ TEST_F(SecurityStoreTest, OrderBookLevels) {
 
   // 5 bid levels (descending)
   message.num_bid_levels = 5;
-  for (int i = 0; i < 5; ++i) {
-    message.bids[i].price = 1750000 - (i * 100); // $175.00, $174.99, etc.
-    message.bids[i].quantity = 1000 + (i * 100);
+  for (size_t i = 0; i < 5; ++i) {
+    message.bids[i].price = 1750000_cents - Price{static_cast<uint64_t>(i * 100)}; // $175.00, $174.99, etc.
+    message.bids[i].quantity = 1000 + static_cast<Quantity>(i * 100);
   }
 
   // 5 ask levels (ascending)
   message.num_ask_levels = 5;
-  for (int i = 0; i < 5; ++i) {
-    message.asks[i].price = 1750500 + (i * 100); // $175.05, $175.06, etc.
-    message.asks[i].quantity = 800 + (i * 50);
+  for (size_t i = 0; i < 5; ++i) {
+    message.asks[i].price = 1750500_cents + Price{static_cast<uint64_t>(i * 100)}; // $175.05, $175.06, etc.
+    message.asks[i].quantity = 800 + static_cast<Quantity>(i * 50);
   }
 
   EXPECT_TRUE(store_->update_from_l2(message));
@@ -382,8 +380,8 @@ TEST_F(SecurityStoreTest, TrulyLockFreeValidation) {
     for (int i = 0; i < 1000; ++i) {
       // Try to update a random security
       if (!test_securities.empty()) {
-        auto &sec_id = test_securities[i % test_securities.size()];
-        auto message = create_test_message(sec_id, 1000000 + i, 1000500 + i);
+        auto &sec_id = test_securities[static_cast<size_t>(i) % test_securities.size()];
+        auto message = create_test_message(sec_id, 1000000_cents + Price{static_cast<uint64_t>(i)}, 1000500_cents + Price{static_cast<uint64_t>(i)});
         if (store_->update_from_l2(message)) {
           update_count.fetch_add(1);
         }

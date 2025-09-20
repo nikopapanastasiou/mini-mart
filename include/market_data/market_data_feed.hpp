@@ -46,7 +46,7 @@ public:
         return 0.0;
       return static_cast<double>(
                  total_latency_ns.load(std::memory_order_relaxed)) /
-             consumed;
+             static_cast<double>(consumed);
     }
 
     void reset() {
@@ -208,8 +208,8 @@ private:
   uint64_t get_current_time_ns() const {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
-        .count();
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
+        .count());
   }
 
   std::shared_ptr<MarketDataProvider> provider_;

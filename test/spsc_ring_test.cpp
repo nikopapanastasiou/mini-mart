@@ -7,7 +7,7 @@
 // Basic functionality tests
 TEST(SpscRingTest, EmptyRing) {
   mini_mart::common::SpscRing<int, 16> ring;
-  EXPECT_EQ(ring.size(), 0);
+  EXPECT_EQ(ring.size(), 0u);
   EXPECT_TRUE(ring.empty());
   EXPECT_FALSE(ring.full());
 }
@@ -35,7 +35,7 @@ TEST(SpscRingTest, SinglePushPop) {
   success = ring.try_pop(value);
   EXPECT_TRUE(success);
   EXPECT_EQ(value, 42);
-  EXPECT_EQ(ring.size(), 0);
+  EXPECT_EQ(ring.size(), 0u);
   EXPECT_TRUE(ring.empty());
   EXPECT_FALSE(ring.full());
 }

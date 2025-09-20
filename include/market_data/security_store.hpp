@@ -18,9 +18,9 @@ public:
   struct alignas(64) SecurityData {
     std::atomic<bool> active{false};
     SecurityId security_id{};
-    std::atomic<Price> best_bid{0};
-    std::atomic<Price> best_ask{0};
-    std::atomic<Price> last_trade_price{0};
+    std::atomic<Price> best_bid{Price{0.0}};
+    std::atomic<Price> best_ask{Price{0.0}};
+    std::atomic<Price> last_trade_price{Price{0.0}};
     std::atomic<uint64_t> last_update_ns{0};
 
     struct alignas(8) OrderBookSide {
@@ -37,9 +37,9 @@ public:
 
     void initialize(const SecurityId &id) {
       security_id = id;
-      best_bid.store(0, std::memory_order_relaxed);
-      best_ask.store(0, std::memory_order_relaxed);
-      last_trade_price.store(0, std::memory_order_relaxed);
+      best_bid.store(Price{0.0}, std::memory_order_relaxed);
+      best_ask.store(Price{0.0}, std::memory_order_relaxed);
+      last_trade_price.store(Price{0.0}, std::memory_order_relaxed);
       last_update_ns.store(0, std::memory_order_relaxed);
       update_count.store(0, std::memory_order_relaxed);
       total_volume.store(0, std::memory_order_relaxed);
@@ -76,27 +76,25 @@ public:
     SecuritySnapshot() = default;
 
     Price get_mid_price() const {
-      if (best_bid == 0 || best_ask == 0) {
+      if (best_bid == Price{0.0} || best_ask == Price{0.0}) {
         return last_trade_price;
       }
-      return (best_bid + best_ask) / 2;
+      return (best_bid + best_ask) / 2u;
     }
 
     double get_spread_bps() const {
-      if (best_bid == 0 || best_ask == 0) {
+      if (best_bid == Price{0.0} || best_ask == Price{0.0}) {
         return 0.0;
       }
       Price mid = get_mid_price();
-      if (mid == 0) {
+      if (mid == Price{0.0}) {
         return 0.0;
       }
-      return (static_cast<double>(best_ask - best_bid) /
-              static_cast<double>(mid)) *
-             10000.0;
+      return ((best_ask - best_bid).dollars() / mid.dollars()) * 10000.0;
     }
 
     static double price_to_double(Price price) {
-      return static_cast<double>(price) / 10000.0;
+      return price.dollars();
     }
   };
 

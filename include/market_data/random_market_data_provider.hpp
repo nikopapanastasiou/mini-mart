@@ -230,7 +230,7 @@ private:
 
     static thread_local uint64_t fast_rng_state = 1;
     fast_rng_state = fast_rng_state * 1103515245 + 12345;
-    double price_change = ((fast_rng_state & 0xFFFF) / 65535.0 - 0.5) * 0.001;
+    double price_change = (static_cast<double>(fast_rng_state & 0xFFFF) / 65535.0 - 0.5) * 0.001;
     
     slot.current_price *= (1.0 + price_change);
     if (slot.current_price < 1.0) slot.current_price = 1.0;
@@ -261,23 +261,23 @@ private:
 
     message.num_bid_levels = 5;
     double current_bid = best_bid;
-    for (int i = 0; i < 5; ++i) {
+    for (size_t i = 0; i < 5; ++i) {
       message.bids[i].price = double_to_price(current_bid);
       qty_rng_state = qty_rng_state * 1103515245 + 12345;
       message.bids[i].quantity = 100 + (qty_rng_state % 900);
       level_rng_state = level_rng_state * 1103515245 + 12345;
-      double level_spacing = 0.0001 + ((level_rng_state & 0xFFFF) / 65535.0) * 0.0004;
+      double level_spacing = 0.0001 + (static_cast<double>(level_rng_state & 0xFFFF) / 65535.0) * 0.0004;
       current_bid -= level_spacing * slot.current_price;
     }
 
     message.num_ask_levels = 5;
     double current_ask = best_ask;
-    for (int i = 0; i < 5; ++i) {
+    for (size_t i = 0; i < 5; ++i) {
       message.asks[i].price = double_to_price(current_ask);
       qty_rng_state = qty_rng_state * 1103515245 + 12345;
       message.asks[i].quantity = 100 + (qty_rng_state % 900);
       level_rng_state = level_rng_state * 1103515245 + 12345;
-      double level_spacing = 0.0001 + ((level_rng_state & 0xFFFF) / 65535.0) * 0.0004;
+      double level_spacing = 0.0001 + (static_cast<double>(level_rng_state & 0xFFFF) / 65535.0) * 0.0004;
       current_ask += level_spacing * slot.current_price;
     }
 
@@ -287,16 +287,16 @@ private:
   uint64_t get_current_time_ns() const {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
-        .count();
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(duration)
+        .count());
   }
 
   Price double_to_price(double price) const {
-    return static_cast<Price>(price * 10000.0);
+    return Price{price};
   }
 
   double price_to_double(Price price) const {
-    return static_cast<double>(price) / 10000.0;
+    return price.dollars();
   }
 
   Config config_;
