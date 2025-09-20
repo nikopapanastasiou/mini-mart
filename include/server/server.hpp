@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <netinet/in.h>
 
-namespace minimart::server {
+namespace mini_mart::server {
 
 class Server {
 
@@ -29,4 +29,4 @@ private:
   static std::uint64_t now_ns();
 };
 
-} // namespace minimart::server
+} // namespace mini_mart::server
